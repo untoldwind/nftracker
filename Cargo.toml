@@ -1,0 +1,7 @@
+[package]
+name = "nftracker"
+version = "0.1.0"
+authors = ["Bodo Junglas <junglas@objectcode.de>"]
+edition = "2018"
+
+[dependencies]
