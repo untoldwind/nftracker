@@ -5,3 +5,10 @@ authors = ["Bodo Junglas <junglas@objectcode.de>"]
 edition = "2018"
 
 [dependencies]
+actix = "0.8"
+actix-web = "1.0"
+nom = "5.0.0-beta2"
+env_logger = "0.6"
+
+[dev-dependencies]
+spectral = "0.6"
