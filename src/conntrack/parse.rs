@@ -1,10 +1,11 @@
 use nom::bytes::complete::is_not;
-use nom::character::complete::{alphanumeric1, char, digit1, space1};
-use nom::combinator::{map_res, opt};
-use nom::error::ParseError;
+use nom::character::complete::{alphanumeric1, char, digit1, space1, hex_digit1};
+use nom::combinator::{map_res, map};
+use nom::error::{ParseError, ErrorKind};
 use nom::multi::separated_list;
-use nom::sequence::{preceded, separated_pair};
-use nom::IResult;
+use nom::sequence::{preceded};
+use nom::{IResult, Err};
+use nom::branch::alt;
 
 #[derive(Debug, Default)]
 pub struct ConntrackEntry<'a> {
@@ -17,8 +18,59 @@ pub struct ConntrackEntry<'a> {
     pub packets: u64,
 }
 
-fn key_value<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (&'a str, &'a str), E> {
-    separated_pair(is_not("= \t"), char('='), is_not(" \t"))(i)
+fn key_value_pair<'a, O, E: ParseError<&'a str>, F>(value_parse: F) -> impl Fn(&'a str) -> IResult<&'a str, (&'a str, O), E> 
+where 
+    F: Fn(&'a str) -> IResult<&'a str, O, E>,
+{
+    move |input: &'a str| {
+        let (input, key) = is_not("= \t")(input)?;
+        let (input, _) = char('=')(input)?;
+        let (input, value) = value_parse(input)?;
+
+        if input.is_empty() || "= \t".contains(input.chars().next().unwrap()) {
+            Ok((input, (key, value)))
+        } else {
+            Err(Err::Error(E::from_error_kind(input, ErrorKind::Complete)))
+        }
+    }
+}
+
+fn ipv4<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    let mut remain = digit1(input)?.0;
+
+    for _ in 0..3 {
+        remain = char('.')(remain)?.0;
+        remain = digit1(remain)?.0;
+    }
+
+    Ok((remain, &input[..(input.len() - remain.len())]))
+}
+
+fn ipv6<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
+    let mut remain = hex_digit1(input)?.0;
+    
+    for _ in 0..3 {
+        remain = char('.')(remain)?.0;
+        remain = hex_digit1(remain)?.0;
+    }
+
+    Ok((remain, &input[..(input.len() - remain.len())]))
+}
+
+#[derive(Debug)]
+enum Value<'a> {
+    Addr(&'a str, &'a str),
+    Number(&'a str, u64),
+    Any(&'a str),
+}
+
+fn key_value<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Value, E> {
+    alt((
+        map(key_value_pair(ipv4), |(key, value)| Value::Addr(key, value)),
+        map(key_value_pair(ipv6), |(key, value)| Value::Addr(key, value)),
+        map(key_value_pair(map_res(digit1, str::parse::<u64>)), |(key, value)| Value::Number(key, value)),
+        map(is_not(" \t"), Value::Any),
+    ))(i)
 }
 
 fn parse_line<'a, E: ParseError<&'a str>>(
@@ -29,7 +81,7 @@ fn parse_line<'a, E: ParseError<&'a str>>(
     let (input, protocol) = preceded(space1, alphanumeric1)(input)?;
     let (input, _) = preceded(space1, digit1)(input)?;
     let (input, timeout) = map_res(preceded(space1, digit1), str::parse::<u64>)(input)?;
-    let (input, key_values) = preceded(space1, separated_list(space1, opt(key_value)))(input)?;
+    let (input, key_values) = preceded(space1, separated_list(space1, key_value))(input)?;
     let mut entries = Vec::with_capacity(2);
     let mut current = ConntrackEntry {
         transport,
@@ -40,7 +92,7 @@ fn parse_line<'a, E: ParseError<&'a str>>(
 
     for key_value in key_values {
         match key_value {
-            Some(("src", src)) => {
+            Value::Addr("src", src) => {
                 if !current.src.is_empty() {
                     entries.push(current);
                     current = ConntrackEntry {
@@ -52,7 +104,7 @@ fn parse_line<'a, E: ParseError<&'a str>>(
                 }
                 current.src = src;
             }
-            Some(("dst", dst)) => current.dst = dst,
+            Value::Addr("dst", dst) => current.dst = dst,
             _ => (),
         }
     }
