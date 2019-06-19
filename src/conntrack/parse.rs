@@ -3,10 +3,11 @@ use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::character::complete::{alphanumeric1, char, digit1, hex_digit1, space1};
 use nom::combinator::{map, map_res};
-use nom::error::{ErrorKind, ParseError};
+use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::separated_list;
 use nom::sequence::preceded;
 use nom::{Err, IResult};
+use std::io::{self, BufRead, BufReader, Read};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ConntrackEntry<'a> {
@@ -124,6 +125,23 @@ fn parse_line<'a, E: ParseError<&'a str>>(
     Ok((input, entries))
 }
 
+pub fn parse<I, V>(input: I, visitor: V) -> io::Result<()>
+where
+    I: Read,
+    V: Fn(&ConntrackEntry<'_>) -> (),
+{
+    let mut buf_reader = BufReader::new(input);
+
+    for line_result in buf_reader.lines() {
+        let line = line_result?;
+        match parse_line::<VerboseError<&str>>(&line) {
+            Ok((_, entries)) => entries.visit(&visitor),
+            Err(error) => (),
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,7 +155,7 @@ mod tests {
 
         assert_that(&remain).is_equal_to("");
         assert_that(&entries.len()).is_equal_to(2);
-        
+
         let second = entries.pop().unwrap();
         let first = entries.pop().unwrap();
 

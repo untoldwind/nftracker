@@ -34,12 +34,39 @@ where
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match self {
+            MiniVec::Empty => true,
+            MiniVec::Many(many) => many.is_empty(),
+            _ => false,
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             MiniVec::Empty => 0,
             MiniVec::One(_) => 1,
             MiniVec::Two(_, _) => 2,
             MiniVec::Many(many) => many.len(),
+        }
+    }
+
+    pub fn visit<V>(&self, visitor: V)
+    where
+        V: Fn(&T) -> (),
+    {
+        match self {
+            MiniVec::Empty => (),
+            MiniVec::One(first) => visitor(first),
+            MiniVec::Two(first, second) => {
+                visitor(first);
+                visitor(second);
+            }
+            MiniVec::Many(many) => {
+                for item in many {
+                    visitor(item)
+                }
+            }
         }
     }
 }
@@ -69,7 +96,7 @@ mod tests {
     #[test]
     fn test_pop() {
         let mut v: MiniVec<u32> = Default::default();
-        
+
         v.push(10);
         v.push(20);
         assert_that(&v.pop()).contains_value(20);
