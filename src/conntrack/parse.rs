@@ -1,25 +1,30 @@
-use nom::bytes::complete::is_not;
-use nom::character::complete::{alphanumeric1, char, digit1, space1, hex_digit1};
-use nom::combinator::{map_res, map};
-use nom::error::{ParseError, ErrorKind};
-use nom::multi::separated_list;
-use nom::sequence::{preceded};
-use nom::{IResult, Err};
+use crate::minivec::MiniVec;
 use nom::branch::alt;
+use nom::bytes::complete::is_not;
+use nom::character::complete::{alphanumeric1, char, digit1, hex_digit1, space1};
+use nom::combinator::{map, map_res};
+use nom::error::{ErrorKind, ParseError};
+use nom::multi::separated_list;
+use nom::sequence::preceded;
+use nom::{Err, IResult};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct ConntrackEntry<'a> {
     pub transport: &'a str,
     pub protocol: &'a str,
     pub timeout: u64,
     pub src: &'a str,
+    pub sport: u16,
     pub dst: &'a str,
+    pub dport: u16,
     pub bytes: u64,
     pub packets: u64,
 }
 
-fn key_value_pair<'a, O, E: ParseError<&'a str>, F>(value_parse: F) -> impl Fn(&'a str) -> IResult<&'a str, (&'a str, O), E> 
-where 
+fn key_value_pair<'a, O, E: ParseError<&'a str>, F>(
+    value_parse: F,
+) -> impl Fn(&'a str) -> IResult<&'a str, (&'a str, O), E>
+where
     F: Fn(&'a str) -> IResult<&'a str, O, E>,
 {
     move |input: &'a str| {
@@ -48,7 +53,7 @@ fn ipv4<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str,
 
 fn ipv6<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     let mut remain = hex_digit1(input)?.0;
-    
+
     for _ in 0..3 {
         remain = char('.')(remain)?.0;
         remain = hex_digit1(remain)?.0;
@@ -68,21 +73,24 @@ fn key_value<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Value, 
     alt((
         map(key_value_pair(ipv4), |(key, value)| Value::Addr(key, value)),
         map(key_value_pair(ipv6), |(key, value)| Value::Addr(key, value)),
-        map(key_value_pair(map_res(digit1, str::parse::<u64>)), |(key, value)| Value::Number(key, value)),
+        map(
+            key_value_pair(map_res(digit1, str::parse::<u64>)),
+            |(key, value)| Value::Number(key, value),
+        ),
         map(is_not(" \t"), Value::Any),
     ))(i)
 }
 
 fn parse_line<'a, E: ParseError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, Vec<ConntrackEntry<'a>>, E> {
+) -> IResult<&'a str, MiniVec<ConntrackEntry<'a>>, E> {
     let (input, transport) = alphanumeric1(input)?;
     let (input, _) = preceded(space1, digit1)(input)?;
     let (input, protocol) = preceded(space1, alphanumeric1)(input)?;
     let (input, _) = preceded(space1, digit1)(input)?;
     let (input, timeout) = map_res(preceded(space1, digit1), str::parse::<u64>)(input)?;
     let (input, key_values) = preceded(space1, separated_list(space1, key_value))(input)?;
-    let mut entries = Vec::with_capacity(2);
+    let mut entries: MiniVec<ConntrackEntry<'a>> = Default::default();
     let mut current = ConntrackEntry {
         transport,
         protocol,
@@ -105,6 +113,10 @@ fn parse_line<'a, E: ParseError<&'a str>>(
                 current.src = src;
             }
             Value::Addr("dst", dst) => current.dst = dst,
+            Value::Number("sport", sport) => current.sport = sport as u16,
+            Value::Number("dport", dport) => current.dport = dport as u16,
+            Value::Number("bytes", bytes) => current.bytes = bytes,
+            Value::Number("packets", packets) => current.packets = packets,
             _ => (),
         }
     }
@@ -115,13 +127,25 @@ fn parse_line<'a, E: ParseError<&'a str>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use spectral::prelude::*;
     use nom::error::VerboseError;
+    use spectral::prelude::*;
 
     #[test]
     fn test_parse_list() {
         let input = r#"ipv4     2 udp      17 27 src=192.168.3.56 dst=192.168.3.1 sport=51556 dport=53 packets=2 bytes=142 src=192.168.3.1 dst=192.168.3.56 sport=53 dport=51556 packets=2 bytes=416 [ASSURED] mark=0 zone=0 use=2"#;
+        let (remain, mut entries) = parse_line::<VerboseError<&str>>(input).unwrap();
 
-        println!("{:?}", parse_line::<VerboseError<&str>>(input));
+        assert_that(&remain).is_equal_to("");
+        assert_that(&entries.len()).is_equal_to(2);
+        
+        let second = entries.pop().unwrap();
+        let first = entries.pop().unwrap();
+
+        assert_that(&first.src).is_equal_to("192.168.3.56");
+        assert_that(&first.dst).is_equal_to("192.168.3.1");
+        assert_that(&first.bytes).is_equal_to(142);
+        assert_that(&second.src).is_equal_to("192.168.3.1");
+        assert_that(&second.dst).is_equal_to("192.168.3.56");
+        assert_that(&second.bytes).is_equal_to(416);
     }
 }
