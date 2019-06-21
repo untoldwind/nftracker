@@ -1,6 +1,8 @@
 use actix_web::{web, App, HttpServer, Responder};
 
+mod config;
 mod conntrack;
+mod device;
 mod minivec;
 
 fn index(info: web::Path<(u32, String)>) -> impl Responder {

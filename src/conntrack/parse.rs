@@ -1,10 +1,11 @@
 use crate::minivec::MiniVec;
+use log::error;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::character::complete::{alphanumeric1, char, digit1, hex_digit1, space1};
-use nom::combinator::{map, map_res};
+use nom::combinator::{map, map_res, recognize};
 use nom::error::{ErrorKind, ParseError, VerboseError};
-use nom::multi::separated_list;
+use nom::multi::{count, separated_list};
 use nom::sequence::preceded;
 use nom::{Err, IResult};
 use std::io::{self, BufRead, BufReader, Read};
@@ -42,25 +43,14 @@ where
 }
 
 fn ipv4<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    let mut remain = digit1(input)?.0;
-
-    for _ in 0..3 {
-        remain = char('.')(remain)?.0;
-        remain = digit1(remain)?.0;
-    }
-
-    Ok((remain, &input[..(input.len() - remain.len())]))
+    recognize(preceded(digit1, count(preceded(char('.'), digit1), 3)))(input)
 }
 
 fn ipv6<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    let mut remain = hex_digit1(input)?.0;
-
-    for _ in 0..3 {
-        remain = char('.')(remain)?.0;
-        remain = hex_digit1(remain)?.0;
-    }
-
-    Ok((remain, &input[..(input.len() - remain.len())]))
+    recognize(preceded(
+        hex_digit1,
+        count(preceded(char(':'), hex_digit1), 7),
+    ))(input)
 }
 
 #[derive(Debug)]
@@ -130,13 +120,15 @@ where
     I: Read,
     V: Fn(&ConntrackEntry<'_>) -> (),
 {
-    let mut buf_reader = BufReader::new(input);
+    let buf_reader = BufReader::new(input);
 
     for line_result in buf_reader.lines() {
         let line = line_result?;
         match parse_line::<VerboseError<&str>>(&line) {
             Ok((_, entries)) => entries.visit(&visitor),
-            Err(error) => (),
+            Err(error) => {
+                error!("Invalid conntrack entry: {:?}", error);
+            }
         }
     }
     Ok(())
