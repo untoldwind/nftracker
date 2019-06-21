@@ -51,23 +51,24 @@ where
         }
     }
 
-    pub fn visit<V>(&self, visitor: V)
+    pub fn visit<V, C>(&self, mut initial: C, visitor: V) -> C
     where
-        V: Fn(&T) -> (),
+        V: Fn(C, &T) -> C,
     {
         match self {
             MiniVec::Empty => (),
-            MiniVec::One(first) => visitor(first),
+            MiniVec::One(first) => initial = visitor(initial, first),
             MiniVec::Two(first, second) => {
-                visitor(first);
-                visitor(second);
+                initial = visitor(initial, first);
+                initial = visitor(initial, second);
             }
             MiniVec::Many(many) => {
                 for item in many {
-                    visitor(item)
+                    initial = visitor(initial, item)
                 }
             }
         }
+        initial
     }
 }
 

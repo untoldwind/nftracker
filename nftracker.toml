@@ -1,0 +1,2 @@
+local_subnets = ["192.168.3", "1234::"]
+wan_interface = "wlp5s0"

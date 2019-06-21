@@ -8,7 +8,7 @@ use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::{count, separated_list};
 use nom::sequence::preceded;
 use nom::{Err, IResult};
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Lines, Read};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ConntrackEntry<'a> {
@@ -115,23 +115,23 @@ fn parse_line<'a, E: ParseError<&'a str>>(
     Ok((input, entries))
 }
 
-pub fn parse<I, V>(input: I, visitor: V) -> io::Result<()>
+pub fn parse<I, V, C>(input: I, mut initial: C, visitor: V) -> io::Result<C>
 where
     I: Read,
-    V: Fn(&ConntrackEntry<'_>) -> (),
+    V: Fn(C, &ConntrackEntry<'_>) -> C,
 {
     let buf_reader = BufReader::new(input);
 
     for line_result in buf_reader.lines() {
         let line = line_result?;
         match parse_line::<VerboseError<&str>>(&line) {
-            Ok((_, entries)) => entries.visit(&visitor),
+            Ok((_, entries)) => initial = entries.visit(initial, &visitor),
             Err(error) => {
                 error!("Invalid conntrack entry: {:?}", error);
             }
         }
     }
-    Ok(())
+    Ok(initial)
 }
 
 #[cfg(test)]
@@ -139,9 +139,11 @@ mod tests {
     use super::*;
     use nom::error::VerboseError;
     use spectral::prelude::*;
+    use std::fs::File;
+    use std::io::Read;
 
     #[test]
-    fn test_parse_list() {
+    fn test_parse_line() {
         let input = r#"ipv4     2 udp      17 27 src=192.168.3.56 dst=192.168.3.1 sport=51556 dport=53 packets=2 bytes=142 src=192.168.3.1 dst=192.168.3.56 sport=53 dport=51556 packets=2 bytes=416 [ASSURED] mark=0 zone=0 use=2"#;
         let (remain, mut entries) = parse_line::<VerboseError<&str>>(input).unwrap();
 
@@ -157,5 +159,13 @@ mod tests {
         assert_that(&second.src).is_equal_to("192.168.3.1");
         assert_that(&second.dst).is_equal_to("192.168.3.56");
         assert_that(&second.bytes).is_equal_to(416);
+    }
+
+    #[test]
+    fn test_parse_conntrack_file() {
+        let file = File::open("fixtures/nf_conntrack").unwrap();
+        let count = parse(file, 0, |count, entry| count + entry.bytes);
+
+        assert_that(&count).is_ok_containing(192841);
     }
 }
