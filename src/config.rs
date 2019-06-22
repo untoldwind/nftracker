@@ -6,12 +6,12 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    local_subnets: Vec<String>,
-    wan_interface: String,
+    pub local_subnets: Vec<String>,
+    pub wan_interface: String,
     #[serde(default = "default_conntrack_file")]
-    conntrack_file: String,
+    pub conntrack_file: String,
     #[serde(default = "default_device_file")]
-    device_file: String,
+    pub device_file: String,
 }
 
 fn default_device_file() -> String {

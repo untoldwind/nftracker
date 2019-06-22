@@ -6,6 +6,7 @@ mod config;
 mod conntrack;
 mod device;
 mod minivec;
+mod model;
 
 use config::Config;
 use conntrack::ConntrackCollector;

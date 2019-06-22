@@ -8,7 +8,7 @@ use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::{count, separated_list};
 use nom::sequence::preceded;
 use nom::{Err, IResult};
-use std::io::{self, BufRead, BufReader, Lines, Read};
+use std::io::{self, BufRead, BufReader, Read};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ConntrackEntry<'a> {
