@@ -1,12 +1,12 @@
 use super::parse;
-use super::{Source, Table};
+use super::{Local, Table};
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
 use log::error;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct ConntrackCollector {
     config: Config,
@@ -17,17 +17,19 @@ pub struct ConntrackCollector {
 struct Ping;
 
 struct TableCollector<'a> {
+    now: Instant,
     table: &'a mut Table,
     local_subnets: &'a [String],
-    sources: HashSet<Source>,
+    locals: HashSet<Local>,
 }
 
 impl<'a> TableCollector<'a> {
     fn process<I: Read>(table: &mut Table, local_subnets: &[String], input: I) -> io::Result<()> {
         let collector = TableCollector {
+            now: Instant::now(),
             table,
             local_subnets,
-            sources: Default::default(),
+            locals: Default::default(),
         };
         let collector = parse::parse(input, collector, TableCollector::collect)?;
 
@@ -36,7 +38,21 @@ impl<'a> TableCollector<'a> {
         Ok(())
     }
 
-    fn collect(self, entry: &parse::ConntrackEntry) -> Self {
+    fn collect(mut self, entry: &parse::ConntrackEntry) -> Self {
+        for subnet in self.local_subnets {
+            if entry.src.starts_with(subnet) {
+                self.table
+                    .push_out(self.now, entry.src, entry.dst, entry.bytes, entry.packets);
+                self.locals.insert(entry.src.to_string());
+                break;
+            }
+            if entry.dst.starts_with(subnet) {
+                self.table
+                    .push_out(self.now, entry.dst, entry.src, entry.bytes, entry.packets);
+                self.locals.insert(entry.dst.to_string());
+                break;
+            }
+        }
         self
     }
 
@@ -45,9 +61,9 @@ impl<'a> TableCollector<'a> {
             .table
             .0
             .keys()
-            .filter(|source| !self.sources.contains(*source))
+            .filter(|source| !self.locals.contains(*source))
             .cloned()
-            .collect::<Vec<Source>>();
+            .collect::<Vec<Local>>();
 
         for source in obsolete {
             self.table.0.remove(&source);
