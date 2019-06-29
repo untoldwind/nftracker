@@ -5,6 +5,7 @@ mod cli;
 mod config;
 mod conntrack;
 mod device;
+mod leases;
 mod minivec;
 mod model;
 

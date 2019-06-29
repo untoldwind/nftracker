@@ -12,6 +12,8 @@ pub struct Config {
     pub conntrack_file: String,
     #[serde(default = "default_device_file")]
     pub device_file: String,
+    #[serde(default = "default_lease_file")]
+    pub leases_file: String,
 }
 
 fn default_device_file() -> String {
@@ -20,6 +22,10 @@ fn default_device_file() -> String {
 
 fn default_conntrack_file() -> String {
     "/proc/net/nf_conntrack".to_string()
+}
+
+fn default_lease_file() -> String {
+    "/var/lib/misc/dnsmasq.leases".to_string()
 }
 
 impl Config {

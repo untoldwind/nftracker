@@ -1,7 +1,7 @@
 use crate::minivec::MiniVec;
 use log::error;
 use nom::branch::alt;
-use nom::bytes::complete::is_not;
+use nom::bytes::complete::{is_not, tag};
 use nom::character::complete::{alphanumeric1, char, digit1, hex_digit1, space1};
 use nom::combinator::{map, map_res, recognize};
 use nom::error::{ErrorKind, ParseError, VerboseError};
