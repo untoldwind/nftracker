@@ -1,5 +1,6 @@
 use super::parse;
 use super::{Local, Table};
+use crate::common::Subnet;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
 use log::error;
@@ -19,12 +20,12 @@ struct Ping;
 struct TableCollector<'a> {
     now: Instant,
     table: &'a mut Table,
-    local_subnets: &'a [String],
+    local_subnets: &'a [Subnet],
     locals: HashSet<Local>,
 }
 
 impl<'a> TableCollector<'a> {
-    fn process<I: Read>(table: &mut Table, local_subnets: &[String], input: I) -> io::Result<()> {
+    fn process<I: Read>(table: &mut Table, local_subnets: &[Subnet], input: I) -> io::Result<()> {
         let collector = TableCollector {
             now: Instant::now(),
             table,
@@ -40,16 +41,16 @@ impl<'a> TableCollector<'a> {
 
     fn collect(mut self, entry: &parse::ConntrackEntry) -> Self {
         for subnet in self.local_subnets {
-            if entry.src.starts_with(subnet) {
+            if subnet.contains(&entry.src) {
                 self.table
                     .push_out(self.now, entry.src, entry.dst, entry.bytes, entry.packets);
-                self.locals.insert(entry.src.to_string());
+                self.locals.insert(entry.src);
                 break;
             }
-            if entry.dst.starts_with(subnet) {
+            if subnet.contains(&entry.dst) {
                 self.table
-                    .push_out(self.now, entry.dst, entry.src, entry.bytes, entry.packets);
-                self.locals.insert(entry.dst.to_string());
+                    .push_in(self.now, entry.dst, entry.src, entry.bytes, entry.packets);
+                self.locals.insert(entry.dst);
                 break;
             }
         }

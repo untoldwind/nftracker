@@ -1,3 +1,4 @@
+use crate::common::Subnet;
 use log::error;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::File;
@@ -6,7 +7,7 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub local_subnets: Vec<String>,
+    pub local_subnets: Vec<Subnet>,
     pub wan_interface: String,
     #[serde(default = "default_conntrack_file")]
     pub conntrack_file: String,

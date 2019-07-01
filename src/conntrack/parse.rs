@@ -1,26 +1,44 @@
+use crate::common::parse::ip_addr;
 use crate::minivec::MiniVec;
 use log::error;
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, tag};
-use nom::character::complete::{alphanumeric1, char, digit1, hex_digit1, space1};
-use nom::combinator::{map, map_res, recognize};
+use nom::bytes::complete::is_not;
+use nom::character::complete::{alphanumeric1, char, digit1, space1};
+use nom::combinator::{map, map_res};
 use nom::error::{ErrorKind, ParseError, VerboseError};
-use nom::multi::{count, separated_list};
+use nom::multi::separated_list;
 use nom::sequence::preceded;
 use nom::{Err, IResult};
 use std::io::{self, BufRead, BufReader, Read};
+use std::net::{IpAddr, Ipv4Addr};
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ConntrackEntry<'a> {
     pub transport: &'a str,
     pub protocol: &'a str,
     pub timeout: u64,
-    pub src: &'a str,
+    pub src: IpAddr,
     pub sport: u16,
-    pub dst: &'a str,
+    pub dst: IpAddr,
     pub dport: u16,
     pub bytes: u64,
     pub packets: u64,
+}
+
+impl<'a> Default for ConntrackEntry<'a> {
+    fn default() -> Self {
+        ConntrackEntry {
+            transport: Default::default(),
+            protocol: Default::default(),
+            timeout: Default::default(),
+            src: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            sport: Default::default(),
+            dst: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            dport: Default::default(),
+            bytes: Default::default(),
+            packets: Default::default(),
+        }
+    }
 }
 
 fn key_value_pair<'a, O, E: ParseError<&'a str>, F>(
@@ -42,28 +60,18 @@ where
     }
 }
 
-fn ipv4<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    recognize(preceded(digit1, count(preceded(char('.'), digit1), 3)))(input)
-}
-
-fn ipv6<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
-    recognize(preceded(
-        hex_digit1,
-        count(preceded(char(':'), hex_digit1), 7),
-    ))(input)
-}
-
 #[derive(Debug)]
 enum Value<'a> {
-    Addr(&'a str, &'a str),
+    Addr(&'a str, IpAddr),
     Number(&'a str, u64),
     Any(&'a str),
 }
 
 fn key_value<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, Value, E> {
     alt((
-        map(key_value_pair(ipv4), |(key, value)| Value::Addr(key, value)),
-        map(key_value_pair(ipv6), |(key, value)| Value::Addr(key, value)),
+        map(key_value_pair(ip_addr), |(key, value)| {
+            Value::Addr(key, value)
+        }),
         map(
             key_value_pair(map_res(digit1, str::parse::<u64>)),
             |(key, value)| Value::Number(key, value),
@@ -92,7 +100,7 @@ fn parse_line<'a, E: ParseError<&'a str>>(
     for key_value in key_values {
         match key_value {
             Value::Addr("src", src) => {
-                if !current.src.is_empty() {
+                if !current.src.is_unspecified() {
                     entries.push(current);
                     current = ConntrackEntry {
                         transport,
@@ -141,6 +149,7 @@ mod tests {
     use spectral::prelude::*;
     use std::fs::File;
     use std::io::Read;
+    use std::net::IpAddr;
 
     #[test]
     fn test_parse_line() {
@@ -153,11 +162,11 @@ mod tests {
         let second = entries.pop().unwrap();
         let first = entries.pop().unwrap();
 
-        assert_that(&first.src).is_equal_to("192.168.3.56");
-        assert_that(&first.dst).is_equal_to("192.168.3.1");
+        assert_that(&first.src).is_equal_to("192.168.3.56".parse::<IpAddr>().unwrap());
+        assert_that(&first.dst).is_equal_to("192.168.3.1".parse::<IpAddr>().unwrap());
         assert_that(&first.bytes).is_equal_to(142);
-        assert_that(&second.src).is_equal_to("192.168.3.1");
-        assert_that(&second.dst).is_equal_to("192.168.3.56");
+        assert_that(&second.src).is_equal_to("192.168.3.1".parse::<IpAddr>().unwrap());
+        assert_that(&second.dst).is_equal_to("192.168.3.56".parse::<IpAddr>().unwrap());
         assert_that(&second.bytes).is_equal_to(416);
     }
 

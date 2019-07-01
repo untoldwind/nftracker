@@ -2,6 +2,7 @@ use actix::{Actor, Addr, System};
 use actix_web::{web, App, HttpServer, Responder};
 
 mod cli;
+mod common;
 mod config;
 mod conntrack;
 mod device;
