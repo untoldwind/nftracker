@@ -1,11 +1,10 @@
+use crate::common::Timeseries;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Instant;
-use crate::common::Timeseries;
 
 pub type Local = IpAddr;
 pub type Remote = IpAddr;
-
 
 #[derive(Debug, Default)]
 pub struct Table(pub HashMap<Local, HashMap<Remote, Timeseries>>);

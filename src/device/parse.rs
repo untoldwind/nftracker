@@ -1,9 +1,11 @@
+use log::error;
 use nom::character::complete::{alphanumeric1, char, digit1, space1};
 use nom::combinator::map_res;
-use nom::error::ParseError;
+use nom::error::{ParseError, VerboseError};
 use nom::multi::count;
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
+use std::io::{self, BufRead, BufReader, Read};
 
 pub struct InterfaceStats<'a> {
     pub interface: &'a str,
@@ -34,6 +36,28 @@ fn parse_line<'a, E: ParseError<&'a str>>(
             transmit_packets,
         },
     ))
+}
+
+pub fn parse<I, V, C>(input: I, mut initial: C, visitor: V) -> io::Result<C>
+where
+    I: Read,
+    V: Fn(C, &InterfaceStats<'_>) -> C,
+{
+    let buf_reader = BufReader::new(input);
+
+    for (i, line_result) in buf_reader.lines().enumerate() {
+        if i < 2 {
+            continue;
+        }
+        let line = line_result?;
+        match parse_line::<VerboseError<&str>>(&line) {
+            Ok((_, stats)) => initial = visitor(initial, &stats),
+            Err(error) => {
+                error!("Invalid conntrack entry: {:?}", error);
+            }
+        }
+    }
+    Ok(initial)
 }
 
 #[cfg(test)]

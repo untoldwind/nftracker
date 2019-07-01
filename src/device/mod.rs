@@ -1,2 +1,4 @@
-mod parse;
 mod collector;
+mod parse;
+
+pub use collector::DeviceCollector;

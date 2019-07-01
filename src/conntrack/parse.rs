@@ -148,7 +148,6 @@ mod tests {
     use nom::error::VerboseError;
     use spectral::prelude::*;
     use std::fs::File;
-    use std::io::Read;
     use std::net::IpAddr;
 
     #[test]

@@ -15,20 +15,20 @@ impl Subnet {
                 let octets = v4_addr.octets();
                 for (i, p) in prefix.iter().enumerate() {
                     if octets[i] != *p {
-                        return false
+                        return false;
                     }
                 }
                 true
-            },
+            }
             (Subnet::V6(prefix), IpAddr::V6(v6_addr)) => {
                 let segments = v6_addr.segments();
                 for (i, p) in prefix.iter().enumerate() {
                     if segments[i] != *p {
-                        return false
+                        return false;
                     }
                 }
                 true
-            },
+            }
             _ => false,
         }
     }

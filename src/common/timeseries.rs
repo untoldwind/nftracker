@@ -15,11 +15,19 @@ pub struct Timeseries {
 
 impl Timeseries {
     pub fn push_in(&mut self, timestamp: Instant, bytes: u64, packets: u64) {
-        self.in_entries.push(TimeseriesEntry { timestamp, bytes, packets })
+        self.in_entries.push(TimeseriesEntry {
+            timestamp,
+            bytes,
+            packets,
+        })
     }
 
     pub fn push_out(&mut self, timestamp: Instant, bytes: u64, packets: u64) {
-        self.out_entries.push(TimeseriesEntry { timestamp, bytes, packets })
+        self.out_entries.push(TimeseriesEntry {
+            timestamp,
+            bytes,
+            packets,
+        })
     }
 
     pub fn prune(&mut self, older_than: Instant) {
@@ -40,6 +48,5 @@ impl Timeseries {
                 i += 1;
             }
         }
-
     }
 }

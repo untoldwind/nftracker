@@ -84,14 +84,14 @@ impl ConntrackCollector {
         let file = File::open(&self.config.conntrack_file)?;
         TableCollector::process(&mut self.table, &self.config.local_subnets, file)?;
 
-        unimplemented!()
+        Ok(())
     }
 }
 
 impl Handler<Ping> for ConntrackCollector {
     type Result = ();
 
-    fn handle(&mut self, msg: Ping, ctx: &mut Context<ConntrackCollector>) {
+    fn handle(&mut self, _: Ping, ctx: &mut Context<ConntrackCollector>) {
         if let Err(error) = self.process_conntrack() {
             error!("Process conntrack failed: {}", error)
         }

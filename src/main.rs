@@ -12,10 +12,12 @@ mod model;
 
 use config::Config;
 use conntrack::ConntrackCollector;
+use device::DeviceCollector;
 
 #[derive(Clone)]
 struct Container {
     conntrack: Addr<ConntrackCollector>,
+    device: Addr<DeviceCollector>,
 }
 
 fn index(info: web::Path<(u32, String)>) -> impl Responder {
@@ -39,7 +41,8 @@ fn main() -> std::io::Result<()> {
     let sys = System::new("nftracker");
 
     let container = web::Data::new(Container {
-        conntrack: ConntrackCollector::new(config).start(),
+        conntrack: ConntrackCollector::new(config.clone()).start(),
+        device: DeviceCollector::new(config).start(),
     });
 
     HttpServer::new(move || {

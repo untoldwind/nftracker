@@ -9,15 +9,23 @@ use nom::{Err, IResult};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub fn ipv4_subnet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Subnet, E> {
-    let (input, prefix) = many_m_n(1, 3, map_res(terminated(digit1, char('.')), str::parse::<u8>))(input)?;
+    let (input, prefix) = many_m_n(
+        1,
+        3,
+        map_res(terminated(digit1, char('.')), str::parse::<u8>),
+    )(input)?;
 
     Ok((input, Subnet::V4(prefix)))
 }
 
 pub fn ipv6_subnet<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Subnet, E> {
-    let (input, prefix) = many_m_n(1, 7, map_res(terminated(hex_digit1, char(':')), |s| {
-        u16::from_str_radix(s, 16)
-    }))(input)?;
+    let (input, prefix) = many_m_n(
+        1,
+        7,
+        map_res(terminated(hex_digit1, char(':')), |s| {
+            u16::from_str_radix(s, 16)
+        }),
+    )(input)?;
 
     Ok((input, Subnet::V6(prefix)))
 }
