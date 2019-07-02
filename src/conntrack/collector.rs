@@ -21,15 +21,22 @@ struct TableCollector<'a> {
     now: Instant,
     table: &'a mut Table,
     local_subnets: &'a [Subnet],
+    retain_data: Duration,
     locals: HashSet<Local>,
 }
 
 impl<'a> TableCollector<'a> {
-    fn process<I: Read>(table: &mut Table, local_subnets: &[Subnet], input: I) -> io::Result<()> {
+    fn process<I: Read>(
+        table: &mut Table,
+        local_subnets: &[Subnet],
+        retain_data: Duration,
+        input: I,
+    ) -> io::Result<()> {
         let collector = TableCollector {
             now: Instant::now(),
             table,
             local_subnets,
+            retain_data,
             locals: Default::default(),
         };
         let collector = parse::parse(input, collector, TableCollector::collect)?;
@@ -69,6 +76,7 @@ impl<'a> TableCollector<'a> {
         for source in obsolete {
             self.table.0.remove(&source);
         }
+        self.table.prune(self.now - self.retain_data);
     }
 }
 
@@ -82,7 +90,12 @@ impl ConntrackCollector {
 
     fn process_conntrack(&mut self) -> io::Result<()> {
         let file = File::open(&self.config.conntrack_file)?;
-        TableCollector::process(&mut self.table, &self.config.local_subnets, file)?;
+        TableCollector::process(
+            &mut self.table,
+            &self.config.local_subnets,
+            self.config.retain_data,
+            file,
+        )?;
 
         Ok(())
     }

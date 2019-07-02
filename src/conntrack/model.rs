@@ -34,6 +34,14 @@ impl Table {
         timeseries.push_out(timestamp, bytes, packets);
     }
 
+    pub fn prune(&mut self, older_than: Instant) {
+        for remotes in self.0.values_mut() {
+            for timeseries in remotes.values_mut() {
+                timeseries.prune(older_than)
+            }
+        }
+    }
+
     fn upsert_timeseries<'a>(&'a mut self, local: IpAddr, remote: IpAddr) -> &'a mut Timeseries {
         if !self.0.contains_key(&local) {
             self.0.insert(local, Default::default());

@@ -2,10 +2,10 @@ use super::parse;
 use crate::common::Timeseries;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
-use std::time::{Duration, Instant};
-use std::io::{Read, self};
-use std::fs::File;
 use log::error;
+use std::fs::File;
+use std::io::{self, Read};
+use std::time::{Duration, Instant};
 
 pub struct DeviceCollector {
     config: Config,
@@ -15,18 +15,24 @@ pub struct DeviceCollector {
 #[derive(Message)]
 struct Ping;
 
-
 struct SeriesCollector<'a> {
     now: Instant,
     interface: &'a str,
+    retain_data: Duration,
     timeseries: &'a mut Timeseries,
 }
 
 impl<'a> SeriesCollector<'a> {
-    fn process<I: Read>(timeseries: &mut Timeseries, interface: &str, input: I) -> io::Result<()> {
+    fn process<I: Read>(
+        timeseries: &mut Timeseries,
+        interface: &str,
+        retain_data: Duration,
+        input: I,
+    ) -> io::Result<()> {
         let collector = SeriesCollector {
             now: Instant::now(),
             interface,
+            retain_data,
             timeseries,
         };
         let collector = parse::parse(input, collector, SeriesCollector::collect)?;
@@ -47,6 +53,7 @@ impl<'a> SeriesCollector<'a> {
     }
 
     fn cleanup(self) {
+        self.timeseries.prune(self.now - self.retain_data)
     }
 }
 
@@ -60,10 +67,14 @@ impl DeviceCollector {
 
     fn process_device_file(&mut self) -> io::Result<()> {
         let file = File::open(&self.config.device_file)?;
-        SeriesCollector::process(&mut self.timeseries, &self.config.wan_interface, file)
+        SeriesCollector::process(
+            &mut self.timeseries,
+            &self.config.wan_interface,
+            self.config.retain_data,
+            file,
+        )
     }
 }
-
 
 impl Handler<Ping> for DeviceCollector {
     type Result = ();
