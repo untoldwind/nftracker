@@ -17,6 +17,7 @@ toml = "0.5"
 clap = "2.33"
 humantime = "1"
 humantime-serde = "0"
+chrono = { version = "0",  default-features = false, features = ["serde"] }
 
 [dev-dependencies]
 spectral = "0.6"

@@ -7,6 +7,7 @@ mod config;
 mod conntrack;
 mod device;
 mod leases;
+mod minirrd;
 mod minivec;
 mod model;
 
