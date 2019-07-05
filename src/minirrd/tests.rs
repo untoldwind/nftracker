@@ -7,11 +7,11 @@ use std::time::Duration;
 struct Counter(pub u64);
 
 impl RRDEntry for Counter {
-    fn combine(self, other: Self) -> Self {
+    fn combine(self, other: &Self) -> Self {
         Counter(self.0.max(other.0))
     }
 
-    fn interpolate(&self, previous: &Self, index: usize, steps: usize) -> Self {
+    fn interpolate(&self, previous: &Self, index: u64, steps: u64) -> Self {
         Counter(previous.0 + (self.0 - previous.0) * index as u64 / steps as u64)
     }
 }
