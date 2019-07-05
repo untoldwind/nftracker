@@ -31,9 +31,9 @@ impl<E: RRDEntry> RRD<E> {
         let start_millis =
             start.timestamp_millis() - start.timestamp_millis() % resolution_millis as i64;
         let rounded_timestamp = NaiveDateTime::from_timestamp(
-                start_millis / 1_000,
-                (start_millis % 1_000) as u32 * 1_000_000,
-            );
+            start_millis / 1_000,
+            (start_millis % 1_000) as u32 * 1_000_000,
+        );
 
         RRD {
             resolution: chrono::Duration::milliseconds(resolution_millis as i64),
@@ -73,20 +73,24 @@ impl<E: RRDEntry> RRD<E> {
 
     pub fn get(&self, offset: usize) -> Option<(NaiveDateTime, &E)> {
         if offset >= self.len() {
-            return None
+            return None;
         }
         let mut index = self.first_index + offset;
         if index >= self.ring.len() {
             index -= self.ring.len();
         }
-        Some((self.first_timestamp + self.resolution * offset as i32, &self.ring[index]))
+        Some((
+            self.first_timestamp + self.resolution * offset as i32,
+            &self.ring[index],
+        ))
     }
 
     pub fn put(&mut self, timestamp: NaiveDateTime, entry: E) -> bool {
         if timestamp < self.first_timestamp {
             return false;
         }
-        let offset_from_last = (timestamp - self.last_timestamp).num_milliseconds() / self.resolution_millis as i64;
+        let offset_from_last =
+            (timestamp - self.last_timestamp).num_milliseconds() / self.resolution_millis as i64;
         if offset_from_last >= self.ring.len() as i64 {
             // So far in future that all previous values become obsolete
             let last = self.ring[self.last_index].clone();
@@ -94,10 +98,13 @@ impl<E: RRDEntry> RRD<E> {
                 - timestamp.timestamp_millis() % self.resolution_millis as i64
                 - ((self.ring.len() - 1) * self.resolution_millis) as i64;
             self.first_index = 0;
-            self.first_timestamp =
-                NaiveDateTime::from_timestamp(first_millis / 1_000, (first_millis % 1_000) as u32 * 1_000_000);
+            self.first_timestamp = NaiveDateTime::from_timestamp(
+                first_millis / 1_000,
+                (first_millis % 1_000) as u32 * 1_000_000,
+            );
             self.last_index = self.ring.len() - 1;
-            self.last_timestamp = self.first_timestamp() + self.resolution * (self.ring.len() - 1) as i32;
+            self.last_timestamp =
+                self.first_timestamp() + self.resolution * (self.ring.len() - 1) as i32;
             for i in 0..self.ring.len() {
                 self.ring[i] = entry.interpolate(
                     &last,
@@ -124,14 +131,14 @@ impl<E: RRDEntry> RRD<E> {
     }
 
     fn advance_last(&mut self) {
-                self.last_index += 1;
-                self.last_timestamp += self.resolution;
-                if self.last_index >= self.ring.len() {
-                    self.last_index = 0;
-                }
-                if self.first_index == self.last_index {
-                    self.advance_first();
-                }
+        self.last_index += 1;
+        self.last_timestamp += self.resolution;
+        if self.last_index >= self.ring.len() {
+            self.last_index = 0;
+        }
+        if self.first_index == self.last_index {
+            self.advance_first();
+        }
     }
 
     fn advance_first(&mut self) {
@@ -155,7 +162,7 @@ impl<'a, E> Iterator for RRDIterator<'a, E> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
-            return None
+            return None;
         }
         let timestamp = self.timestamp;
         let entry = &self.rrd.ring[self.position];
