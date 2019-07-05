@@ -36,7 +36,7 @@ impl<E: RRDEntry> RRD<E> {
             );
 
         RRD {
-            resolution: chrono::Duration::microseconds(resolution_millis as i64),
+            resolution: chrono::Duration::milliseconds(resolution_millis as i64),
             resolution_millis,
             first_timestamp: rounded_timestamp,
             last_timestamp: rounded_timestamp,
@@ -67,7 +67,19 @@ impl<E: RRDEntry> RRD<E> {
             rrd: self,
             position: self.first_index,
             timestamp: self.first_timestamp(),
+            done: false,
         }
+    }
+
+    pub fn get(&self, offset: usize) -> Option<(NaiveDateTime, &E)> {
+        if offset >= self.len() {
+            return None
+        }
+        let mut index = self.first_index + offset;
+        if index >= self.ring.len() {
+            index -= self.ring.len();
+        }
+        Some((self.first_timestamp + self.resolution * offset as i32, &self.ring[index]))
     }
 
     pub fn put(&mut self, timestamp: NaiveDateTime, entry: E) -> bool {
@@ -135,20 +147,28 @@ struct RRDIterator<'a, E> {
     rrd: &'a RRD<E>,
     position: usize,
     timestamp: NaiveDateTime,
+    done: bool,
 }
 
 impl<'a, E> Iterator for RRDIterator<'a, E> {
     type Item = (NaiveDateTime, &'a E);
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None
+        }
+        let timestamp = self.timestamp;
+        let entry = &self.rrd.ring[self.position];
+
         if self.position == self.rrd.last_index {
-            return None;
+            self.done = true;
+        } else {
+            self.position += 1;
+            if self.position >= self.rrd.ring.len() {
+                self.position = 0;
+            }
+            self.timestamp += self.rrd.resolution;
         }
-        self.position += 1;
-        if self.position > self.rrd.ring.len() {
-            self.position = 0;
-        }
-        self.timestamp += self.rrd.resolution;
-        Some((self.timestamp, &self.rrd.ring[self.position]))
+        Some((timestamp, entry))
     }
 }
