@@ -1,74 +1,69 @@
 use super::parse;
-use crate::common::Timeseries;
+use crate::common::Trafic;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
+use chrono::{NaiveDateTime, Utc};
 use log::error;
 use std::fs::File;
 use std::io::{self, Read};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct DeviceCollector {
     config: Config,
-    timeseries: Timeseries,
+    traffic: Trafic,
 }
 
 #[derive(Message)]
 struct Ping;
 
 struct SeriesCollector<'a> {
-    now: Instant,
+    now: NaiveDateTime,
     interface: &'a str,
     retain_data: Duration,
-    timeseries: &'a mut Timeseries,
+    traffic: &'a mut Trafic,
 }
 
 impl<'a> SeriesCollector<'a> {
     fn process<I: Read>(
-        timeseries: &mut Timeseries,
+        traffic: &mut Trafic,
         interface: &str,
         retain_data: Duration,
         input: I,
     ) -> io::Result<()> {
         let collector = SeriesCollector {
-            now: Instant::now(),
+            now: Utc::now().naive_utc(),
             interface,
             retain_data,
-            timeseries,
+            traffic,
         };
         let collector = parse::parse(input, collector, SeriesCollector::collect)?;
-
-        collector.cleanup();
 
         Ok(())
     }
 
     fn collect(self, stats: &parse::InterfaceStats) -> Self {
         if stats.interface == self.interface {
-            self.timeseries
-                .push_in(self.now, stats.receive_bytes, stats.receive_packets);
-            self.timeseries
-                .push_out(self.now, stats.transmit_bytes, stats.transmit_packets);
+            self.traffic
+                .put_in(self.now, stats.receive_bytes, stats.receive_packets);
+            self.traffic
+                .put_out(self.now, stats.transmit_bytes, stats.transmit_packets);
         }
         self
-    }
-
-    fn cleanup(self) {
-        self.timeseries.prune(self.now - self.retain_data)
     }
 }
 
 impl DeviceCollector {
     pub fn new(config: Config) -> DeviceCollector {
         DeviceCollector {
+            traffic: Trafic::new(config.retain_data),
             config,
-            timeseries: Default::default(),
         }
     }
 
     fn process_device_file(&mut self) -> io::Result<()> {
         let file = File::open(&self.config.device_file)?;
         SeriesCollector::process(
-            &mut self.timeseries,
+            &mut self.traffic,
             &self.config.wan_interface,
             self.config.retain_data,
             file,

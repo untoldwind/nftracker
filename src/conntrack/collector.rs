@@ -3,11 +3,12 @@ use super::{Local, Table};
 use crate::common::Subnet;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
+use chrono::{NaiveDateTime, Utc};
 use log::error;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct ConntrackCollector {
     config: Config,
@@ -18,7 +19,7 @@ pub struct ConntrackCollector {
 struct Ping;
 
 struct TableCollector<'a> {
-    now: Instant,
+    now: NaiveDateTime,
     table: &'a mut Table,
     local_subnets: &'a [Subnet],
     retain_data: Duration,
@@ -33,7 +34,7 @@ impl<'a> TableCollector<'a> {
         input: I,
     ) -> io::Result<()> {
         let collector = TableCollector {
-            now: Instant::now(),
+            now: Utc::now().naive_utc(),
             table,
             local_subnets,
             retain_data,
@@ -67,24 +68,23 @@ impl<'a> TableCollector<'a> {
     fn cleanup(self) {
         let obsolete = self
             .table
-            .0
+            .connections
             .keys()
             .filter(|source| !self.locals.contains(*source))
             .cloned()
             .collect::<Vec<Local>>();
 
         for source in obsolete {
-            self.table.0.remove(&source);
+            self.table.connections.remove(&source);
         }
-        self.table.prune(self.now - self.retain_data);
     }
 }
 
 impl ConntrackCollector {
     pub fn new(config: Config) -> ConntrackCollector {
         ConntrackCollector {
+            table: Table::new(config.retain_data),
             config,
-            table: Default::default(),
         }
     }
 

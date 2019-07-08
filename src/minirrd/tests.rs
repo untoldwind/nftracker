@@ -12,7 +12,7 @@ impl RRDEntry for Counter {
     }
 
     fn interpolate(&self, previous: &Self, index: u64, steps: u64) -> Self {
-        Counter(previous.0 + (self.0 - previous.0) * index as u64 / steps as u64)
+        Counter(previous.0 + (self.0 - previous.0) * index / steps)
     }
 }
 
@@ -36,7 +36,7 @@ fn test_fill_single_points() {
 
     for i in 0..500 {
         let timestamp = start + chrono::Duration::milliseconds(500) * (2 * i + 1);
-        rrd.put(timestamp, Counter(100 * i as u64));
+        assert_that(&rrd.put(timestamp, Counter(100 * i as u64))).is_true();
     }
 
     assert_that(&rrd.first_timestamp()).is_equal_to(start);
@@ -61,7 +61,7 @@ fn test_fill_single_points() {
 
     for i in 500..1000 {
         let timestamp = start + chrono::Duration::milliseconds(500) * (2 * i + 1);
-        rrd.put(timestamp, Counter(100 * i as u64));
+        assert_that(&rrd.put(timestamp, Counter(100 * i as u64))).is_true();
     }
 
     assert_that(&rrd.len()).is_equal_to(600);
@@ -95,7 +95,7 @@ fn test_fill_double_points() {
 
     for i in 0..1000 {
         let timestamp = start + chrono::Duration::milliseconds(250) * (2 * i + 1);
-        rrd.put(timestamp, Counter(100 * i as u64));
+        assert_that(&rrd.put(timestamp, Counter(100 * i as u64))).is_true();
     }
 
     assert_that(&rrd.first_timestamp()).is_equal_to(start);
@@ -116,5 +116,34 @@ fn test_fill_double_points() {
         } else {
             panic!("No point at {}", i)
         }
+    }
+}
+
+#[test]
+fn test_interpolate_gaps() {
+    let start = NaiveDateTime::new(
+        NaiveDate::from_ymd(2000, 1, 1),
+        NaiveTime::from_hms(0, 0, 0),
+    );
+    let mut rrd = RRD::<Counter>::new(start, Duration::from_secs(1), Duration::from_secs(600));
+
+    assert_that(&rrd.put(start, Counter(0))).is_true();
+    assert_that(&rrd.put(start + chrono::Duration::seconds(1200), Counter(600))).is_true();
+
+    assert_that(&rrd.first_timestamp()).is_equal_to(start + chrono::Duration::seconds(601));
+    assert_that(&rrd.last_timestamp()).is_equal_to(start + chrono::Duration::seconds(1200));
+
+    if let Some((actual_timestamp, actual_counter)) = rrd.get(0) {
+        assert_that(&actual_timestamp).is_equal_to(start + chrono::Duration::seconds(601));
+        assert_that(&actual_counter).is_equal_to(&Counter(300));
+    } else {
+        panic!("No point at {}", 0)
+    }
+
+    if let Some((actual_timestamp, actual_counter)) = rrd.get(599) {
+        assert_that(&actual_timestamp).is_equal_to(start + chrono::Duration::seconds(1200));
+        assert_that(&actual_counter).is_equal_to(&Counter(600));
+    } else {
+        panic!("No point at {}", 599)
     }
 }

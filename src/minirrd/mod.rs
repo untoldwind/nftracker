@@ -1,15 +1,17 @@
 use chrono::NaiveDateTime;
+use std::fmt::Debug;
 use std::time::Duration;
 
 #[cfg(test)]
 mod tests;
 
-pub trait RRDEntry: Default + Clone {
+pub trait RRDEntry: Default + Debug + Clone {
     fn combine(self, other: &Self) -> Self;
 
     fn interpolate(&self, previous: &Self, index: u64, steps: u64) -> Self;
 }
 
+#[derive(Debug, Clone)]
 pub struct RRD<E> {
     resolution: chrono::Duration,
     resolution_millis: usize,
