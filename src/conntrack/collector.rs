@@ -22,7 +22,6 @@ struct TableCollector<'a> {
     now: NaiveDateTime,
     table: &'a mut Table,
     local_subnets: &'a [Subnet],
-    retain_data: Duration,
     locals: HashSet<Local>,
 }
 
@@ -30,14 +29,12 @@ impl<'a> TableCollector<'a> {
     fn process<I: Read>(
         table: &mut Table,
         local_subnets: &[Subnet],
-        retain_data: Duration,
         input: I,
     ) -> io::Result<()> {
         let collector = TableCollector {
             now: Utc::now().naive_utc(),
             table,
             local_subnets,
-            retain_data,
             locals: Default::default(),
         };
         let collector = parse::parse(input, collector, TableCollector::collect)?;
@@ -93,7 +90,6 @@ impl ConntrackCollector {
         TableCollector::process(
             &mut self.table,
             &self.config.local_subnets,
-            self.config.retain_data,
             file,
         )?;
 

@@ -19,7 +19,6 @@ struct Ping;
 struct SeriesCollector<'a> {
     now: NaiveDateTime,
     interface: &'a str,
-    retain_data: Duration,
     traffic: &'a mut Trafic,
 }
 
@@ -27,16 +26,14 @@ impl<'a> SeriesCollector<'a> {
     fn process<I: Read>(
         traffic: &mut Trafic,
         interface: &str,
-        retain_data: Duration,
         input: I,
     ) -> io::Result<()> {
         let collector = SeriesCollector {
             now: Utc::now().naive_utc(),
             interface,
-            retain_data,
             traffic,
         };
-        let collector = parse::parse(input, collector, SeriesCollector::collect)?;
+        parse::parse(input, collector, SeriesCollector::collect)?;
 
         Ok(())
     }
@@ -65,7 +62,6 @@ impl DeviceCollector {
         SeriesCollector::process(
             &mut self.traffic,
             &self.config.wan_interface,
-            self.config.retain_data,
             file,
         )
     }
