@@ -1,23 +1,5 @@
-[package]
-name = "nftracker"
-version = "0.1.0"
-authors = ["Bodo Junglas <junglas@objectcode.de>"]
-edition = "2018"
-
-[dependencies]
-actix = "0.8"
-actix-web = "1.0"
-nom = "5"
-log = "0.4"
-env_logger = "0.6"
-serde = "1.0"
-serde_json = "1.0"
-serde_derive = "1.0"
-toml = "0.5"
-clap = "2.33"
-humantime = "1"
-humantime-serde = "0"
-chrono = { version = "0",  default-features = false, features = ["serde"] }
-
-[dev-dependencies]
-spectral = "0.6"
+[workspace]
+members = [
+    "server",
+    "simulator",
+]
