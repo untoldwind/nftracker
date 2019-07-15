@@ -1,3 +1,6 @@
+use std::thread;
+use std::time::Duration;
+
 mod cli;
 mod simulator;
 
@@ -12,16 +15,24 @@ fn main() -> std::io::Result<()> {
     }
     log_builder.init();
 
-    let conntrack_simulator =
+    let mut conntrack_simulator =
         simulator::ConntrackSimulator::new(matches.value_of("conntrack-file").unwrap());
-    let device_simulator = simulator::DeviceSimulator::new(
-        matches.value_of("device-file").unwrap(),
-        &conntrack_simulator,
-    );
-    let leases_simulator = simulator::LeasesSimulator::new(
-        matches.value_of("leases-file").unwrap(),
-        &conntrack_simulator,
-    );
+    let device_simulator =
+        simulator::DeviceSimulator::new(matches.value_of("device-file").unwrap());
+    let leases_simulator =
+        simulator::LeasesSimulator::new(matches.value_of("leases-file").unwrap());
+
+    loop {
+        conntrack_simulator.tick();
+
+        conntrack_simulator.dump()?;
+        device_simulator.dump(&conntrack_simulator)?;
+        leases_simulator.dump(&conntrack_simulator)?;
+
+        println!("Tick");
+
+        thread::sleep(Duration::from_secs(1));
+    }
 
     Ok(())
 }

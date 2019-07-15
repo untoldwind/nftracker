@@ -26,11 +26,7 @@ struct TableCollector<'a> {
 }
 
 impl<'a> TableCollector<'a> {
-    fn process<I: Read>(
-        table: &mut Table,
-        local_subnets: &[Subnet],
-        input: I,
-    ) -> io::Result<()> {
+    fn process<I: Read>(table: &mut Table, local_subnets: &[Subnet], input: I) -> io::Result<()> {
         let collector = TableCollector {
             now: Utc::now().naive_utc(),
             table,
@@ -87,11 +83,7 @@ impl ConntrackCollector {
 
     fn process_conntrack(&mut self) -> io::Result<()> {
         let file = File::open(&self.config.conntrack_file)?;
-        TableCollector::process(
-            &mut self.table,
-            &self.config.local_subnets,
-            file,
-        )?;
+        TableCollector::process(&mut self.table, &self.config.local_subnets, file)?;
 
         Ok(())
     }

@@ -1,18 +1,19 @@
 use super::ConntrackSimulator;
+use std::fs::File;
+use std::io::{self, Write};
 
 pub struct LeasesSimulator<'a> {
     file: &'a str,
-    conntrack_simulator: &'a ConntrackSimulator<'a>,
 }
 
 impl<'a> LeasesSimulator<'a> {
-    pub fn new(
-        file: &'a str,
-        conntrack_simulator: &'a ConntrackSimulator<'a>,
-    ) -> LeasesSimulator<'a> {
-        LeasesSimulator {
-            file,
-            conntrack_simulator,
-        }
+    pub fn new(file: &'a str) -> LeasesSimulator<'a> {
+        LeasesSimulator { file }
+    }
+
+    pub fn dump(&self, conntrack_simulator: &ConntrackSimulator) -> io::Result<()> {
+        let mut f = File::create(self.file)?;
+
+        Ok(())
     }
 }

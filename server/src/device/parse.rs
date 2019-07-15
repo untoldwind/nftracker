@@ -29,7 +29,7 @@ fn parse_line<'a, E: ParseError<&'a str>>(
     Ok((
         input,
         InterfaceStats {
-            interface,
+            interface: interface.trim(),
             receive_bytes,
             receive_packets,
             transmit_bytes,

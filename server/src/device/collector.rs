@@ -23,11 +23,7 @@ struct SeriesCollector<'a> {
 }
 
 impl<'a> SeriesCollector<'a> {
-    fn process<I: Read>(
-        traffic: &mut Trafic,
-        interface: &str,
-        input: I,
-    ) -> io::Result<()> {
+    fn process<I: Read>(traffic: &mut Trafic, interface: &str, input: I) -> io::Result<()> {
         let collector = SeriesCollector {
             now: Utc::now().naive_utc(),
             interface,
@@ -59,11 +55,7 @@ impl DeviceCollector {
 
     fn process_device_file(&mut self) -> io::Result<()> {
         let file = File::open(&self.config.device_file)?;
-        SeriesCollector::process(
-            &mut self.traffic,
-            &self.config.wan_interface,
-            file,
-        )
+        SeriesCollector::process(&mut self.traffic, &self.config.wan_interface, file)
     }
 }
 
