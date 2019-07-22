@@ -18,6 +18,7 @@ clap = "2.33"
 humantime = "1"
 humantime-serde = "0"
 chrono = { version = "0",  default-features = false, features = ["serde"] }
+itertools = "0.8"
 
 [dev-dependencies]
 spectral = "0.6"

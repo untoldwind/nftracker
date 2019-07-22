@@ -18,7 +18,7 @@ pub struct LeasesCollector {
 struct Ping;
 
 #[derive(Message)]
-#[rtype(result="HashMap<IpAddr, Lease>")]
+#[rtype(result = "HashMap<IpAddr, Lease>")]
 struct Snapshot;
 
 impl LeasesCollector {
@@ -56,7 +56,7 @@ impl Handler<Snapshot> for LeasesCollector {
     type Result = MessageResult<Snapshot>;
 
     fn handle(&mut self, _: Snapshot, _: &mut Context<LeasesCollector>) -> Self::Result {
-        let mut leases_map : HashMap<IpAddr, Lease> = Default::default();
+        let mut leases_map: HashMap<IpAddr, Lease> = Default::default();
 
         for lease in self.leases.iter() {
             leases_map.insert(lease.addr, lease.clone());
