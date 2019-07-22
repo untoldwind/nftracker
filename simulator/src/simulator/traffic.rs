@@ -1,4 +1,4 @@
-use rand::distributions::Normal;
+use rand_distr::Normal;
 use rand::{thread_rng, Rng, RngCore};
 use std::iter::FromIterator;
 use std::ops;
@@ -44,13 +44,13 @@ impl ops::AddAssign<&Rate> for Traffic {
             .sample(Normal::new(
                 rhs.bytes_per_sec as f64,
                 rhs.bytes_per_sec as f64 / 4.0,
-            ))
+            ).unwrap())
             .max(0.0) as u64;
         self.packets += rng
             .sample(Normal::new(
                 rhs.packets_per_sec as f64,
                 rhs.packets_per_sec as f64 / 4.0,
-            ))
+            ).unwrap())
             .max(0.0) as u64;
     }
 }

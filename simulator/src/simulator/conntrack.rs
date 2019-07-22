@@ -6,8 +6,8 @@ use std::net::IpAddr;
 
 pub struct ConntrackTarget {
     target_ip_addr: IpAddr,
-    source_ip_addr: IpAddr,
-    source_hostname: String,
+    pub source_ip_addr: IpAddr,
+    pub source_hostname: String,
     in_traffic: Traffic,
     in_rate: Rate,
     out_traffic: Traffic,
@@ -59,10 +59,10 @@ impl<'a> ConntrackSimulator<'a> {
     pub fn tick(&mut self) {
         let mut rng = thread_rng();
 
-        if rng.next_u32() % 100 < 2 || self.targets.len() < 3 {
+        if (rng.next_u32() % 100 < 20 || self.targets.len() < 3) && self.targets.len() < 20 {
             self.targets.push(ConntrackTarget::random());
         }
-        if rng.next_u32() % 100 < 2 && self.targets.len() > 3 {
+        if rng.next_u32() % 100 < 5 && self.targets.len() > 3 {
             let removed = self
                 .targets
                 .remove(rng.next_u32() as usize % self.targets.len());
@@ -108,5 +108,9 @@ impl<'a> ConntrackSimulator<'a> {
             .collect::<Traffic>();
         traffic += self.out_offset;
         traffic
+    }
+
+    pub fn targets(&self) -> impl Iterator<Item = &ConntrackTarget> {
+        self.targets.iter()
     }
 }

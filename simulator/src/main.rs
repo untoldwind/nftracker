@@ -33,6 +33,4 @@ fn main() -> std::io::Result<()> {
 
         thread::sleep(Duration::from_secs(1));
     }
-
-    Ok(())
 }
