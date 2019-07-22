@@ -14,11 +14,13 @@ mod model;
 use config::Config;
 use conntrack::ConntrackCollector;
 use device::DeviceCollector;
+use leases::LeasesCollector;
 
 #[derive(Clone)]
 struct Container {
     conntrack: Addr<ConntrackCollector>,
     device: Addr<DeviceCollector>,
+    leases: Addr<LeasesCollector>,
 }
 
 fn index(info: web::Path<(u32, String)>) -> impl Responder {
@@ -43,7 +45,8 @@ fn main() -> std::io::Result<()> {
 
     let container = web::Data::new(Container {
         conntrack: ConntrackCollector::new(config.clone()).start(),
-        device: DeviceCollector::new(config).start(),
+        device: DeviceCollector::new(config.clone()).start(),
+        leases: LeasesCollector::new(config).start(),
     });
 
     HttpServer::new(move || {

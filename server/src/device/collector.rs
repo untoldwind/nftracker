@@ -3,7 +3,7 @@ use crate::common::Trafic;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
 use chrono::{NaiveDateTime, Utc};
-use log::error;
+use log::{debug, error};
 use std::fs::File;
 use std::io::{self, Read};
 use std::time::Duration;
@@ -16,20 +16,20 @@ pub struct DeviceCollector {
 #[derive(Message)]
 struct Ping;
 
-struct SeriesCollector<'a> {
+struct TrafficCollector<'a> {
     now: NaiveDateTime,
     interface: &'a str,
     traffic: &'a mut Trafic,
 }
 
-impl<'a> SeriesCollector<'a> {
+impl<'a> TrafficCollector<'a> {
     fn process<I: Read>(traffic: &mut Trafic, interface: &str, input: I) -> io::Result<()> {
-        let collector = SeriesCollector {
+        let collector = TrafficCollector {
             now: Utc::now().naive_utc(),
             interface,
             traffic,
         };
-        parse::parse(input, collector, SeriesCollector::collect)?;
+        parse::parse(input, collector, TrafficCollector::collect)?;
 
         Ok(())
     }
@@ -54,8 +54,9 @@ impl DeviceCollector {
     }
 
     fn process_device_file(&mut self) -> io::Result<()> {
+        debug!("Collecting: {}", self.config.device_file);
         let file = File::open(&self.config.device_file)?;
-        SeriesCollector::process(&mut self.traffic, &self.config.wan_interface, file)
+        TrafficCollector::process(&mut self.traffic, &self.config.wan_interface, file)
     }
 }
 

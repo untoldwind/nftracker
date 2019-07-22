@@ -1,19 +1,15 @@
+use super::Lease;
 use crate::common::parse::ip_addr;
+use log::debug;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
 use nom::character::complete::{char, digit1, hex_digit1, space1};
 use nom::combinator::recognize;
-use nom::error::ParseError;
+use nom::error::{ParseError, VerboseError};
 use nom::multi::many0_count;
 use nom::sequence::preceded;
 use nom::IResult;
-use std::net::IpAddr;
-
-pub struct Lease<'a> {
-    pub name: &'a str,
-    pub addr: IpAddr,
-    pub client_id: &'a str,
-}
+use std::io::{self, BufRead, BufReader, Read};
 
 fn hostname<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((
@@ -29,7 +25,7 @@ fn mac_like<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a 
     ))(input)
 }
 
-fn parse_line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Lease<'a>, E> {
+fn parse_line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Lease, E> {
     let (input, _) = digit1(input)?;
     let (input, _) = preceded(space1, mac_like)(input)?;
     let (input, addr) = preceded(space1, ip_addr)(input)?;
@@ -39,11 +35,31 @@ fn parse_line<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, Le
     Ok((
         input,
         Lease {
-            name,
+            name: name.to_string(),
             addr,
-            client_id,
+            client_id: client_id.to_string(),
         },
     ))
+}
+
+pub fn parse<I, V, C>(input: I, mut initial: C, visitor: V) -> io::Result<C>
+where
+    I: Read,
+    V: Fn(C, Lease) -> C,
+{
+    let buf_reader = BufReader::new(input);
+
+    for line_result in buf_reader.lines() {
+        let line = line_result?;
+
+        match parse_line::<VerboseError<&str>>(&line) {
+            Ok((_, lease)) => initial = visitor(initial, lease),
+            Err(error) => {
+                debug!("Invalid conntrack entry: {:?}", error);
+            }
+        }
+    }
+    Ok(initial)
 }
 
 #[cfg(test)]
@@ -59,9 +75,9 @@ mod tests {
         let (remain, lease) = parse_line::<VerboseError<&str>>(input).unwrap();
 
         assert_that(&remain).is_equal_to("");
-        assert_that(&lease.name).is_equal_to("brick");
+        assert_that(&lease.name).is_equal_to("brick".to_string());
         assert_that(&lease.addr).is_equal_to("192.168.3.86".parse::<IpAddr>().unwrap());
-        assert_that(&lease.client_id).is_equal_to("01:24:5e:be:12:34:56");
+        assert_that(&lease.client_id).is_equal_to("01:24:5e:be:12:34:56".to_string());
     }
 
     #[test]
@@ -70,9 +86,9 @@ mod tests {
         let (remain, lease) = parse_line::<VerboseError<&str>>(input).unwrap();
 
         assert_that(&remain).is_equal_to("");
-        assert_that(&lease.name).is_equal_to("thunder");
+        assert_that(&lease.name).is_equal_to("thunder".to_string());
         assert_that(&lease.addr).is_equal_to("1234::28a".parse::<IpAddr>().unwrap());
         assert_that(&lease.client_id)
-            .is_equal_to("00:04:2e:3b:43:05:a5:df:ad:a0:32:bb:a8:a8:d3:12:34:56");
+            .is_equal_to("00:04:2e:3b:43:05:a5:df:ad:a0:32:bb:a8:a8:d3:12:34:56".to_string());
     }
 }

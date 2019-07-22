@@ -4,7 +4,7 @@ use crate::common::Subnet;
 use crate::config::Config;
 use actix::{Actor, AsyncContext, Context, Handler, Message};
 use chrono::{NaiveDateTime, Utc};
-use log::error;
+use log::{debug, error};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read};
@@ -82,6 +82,7 @@ impl ConntrackCollector {
     }
 
     fn process_conntrack(&mut self) -> io::Result<()> {
+        debug!("Collecting: {}", self.config.conntrack_file);
         let file = File::open(&self.config.conntrack_file)?;
         TableCollector::process(&mut self.table, &self.config.local_subnets, file)?;
 
